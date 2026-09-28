@@ -21,3 +21,5 @@ La selección exclusiva de los giros económicos con impacto directo en la atmó
 * **Combustión y Procesos Térmicos:** Panaderías, tortillerías, plantas de concreto y energía justificadas por el *Inventario Nacional de Emisiones (SEMARNAT/INECC)* y el compendio *AP-42* de la **U.S. EPA** como precursores de \(NO_x\) y CO.
 * **Compuestos Orgánicos Volátiles (COV):** Talleres de hojalatería y pintura, carpinterías y gasolineras seleccionados según las directrices de la **OMS** y la *NOM-172-SEMARNAT* por emisiones fugitivas de solventes precursores de ozono.
 * **Transporte Pesado Diésel:** Centrales y encierros logísticos incluidos con base en los lineamientos de la **OCDE** por inyección concentrada de nitrógenos vehiculares.
+
+Link del visor web: https://cesdiaz616.github.io/Contaminacion_atmosferica_Merida/. 
