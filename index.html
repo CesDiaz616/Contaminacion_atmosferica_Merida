@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Diagnóstico de Contaminación Atmosférica - Mérida</title>
+
+    <!-- Fuente Lato -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+
+    <!-- CSS de Leaflet y Plugins -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            height: 100%;
+            width: 100vw;
+            font-family: 'Lato', sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Título superior izquierdo */
+        .title-banner {
+            position: absolute;
+            top: 15px;
+            left: 50px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.92);
+            padding: 10px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-width: calc(100% - 120px);
+            backdrop-filter: blur(4px);
+        }
+
+        .title-banner h1 {
+            font-size: 15px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #1a1a1a;
+            line-height: 1.3;
+        }
+
+        /* Contenedor de la Simbología Desplegable */
+        .legend-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        /* Botón flotante para Ocultar/Mostrar Simbología */
+        .legend-toggle-btn {
+            background: #ffffff;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .legend-toggle-btn:hover {
+            background: #f4f4f4;
+            transform: scale(1.05);
+        }
+
+        .legend-toggle-btn svg {
+            width: 22px;
+            height: 22px;
+            fill: #333;
+        }
+
+        /* Panel de Simbología */
+        .legend-panel {
+            background: rgba(255, 255, 255, 0.96);
+            padding: 14px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+            max-height: 65vh;
+            overflow-y: auto;
+            width: 290px;
+            font-size: 12px;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .legend-panel.collapsed {
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .legend-title {
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-size: 11px;
+            color: #1a252f;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            border: 1px solid #777;
+            flex-shrink: 0;
+        }
+
+        .legend-section-title {
+            font-weight: 900;
+            text-transform: uppercase;
+            margin: 12px 0 4px 0;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+            color: #111;
+        }
+
+        /* Rampa NO2 */
+        .no2-gradient-bar {
+            width: 24px;
+            height: 120px;
+            background: linear-gradient(to bottom, #800000, #ff0000, #ffaa00, #ffff00, #00ff00, #00ffff, #0000ff);
+            border: 1px solid #333;
+            margin-right: 12px;
+        }
+
+        .no2-container {
+            display: flex;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .no2-labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 120px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .opacity-control {
+            margin-top: 10px;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .opacity-control label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .opacity-control input {
+            width: 100%;
+        }
+
+        /* Estilo base para Pop-up dinámico de AGEB */
+        .custom-ageb-popup .leaflet-popup-content-wrapper {
+            border-radius: 12px !important;
+            padding: 0 !important;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4) !important;
+            overflow: hidden;
+        }
+
+        .custom-ageb-popup .leaflet-popup-content {
+            margin: 16px !important;
+            font-family: 'Lato', sans-serif !important;
+            line-height: 1.2 !important;
+            width: 260px !important;
+        }
+
+        .popup-header-title {
+            font-size: 13px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 16px;
+            line-height: 1.3;
+        }
+
+        .popup-field {
+            margin-bottom: 12px;
+        }
+
+        .popup-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+            letter-spacing: 0.2px;
+        }
+
+        .popup-value {
+            font-size: 20px;
+            font-weight: 900;
+        }
+
+        /* Temas de color de texto según contraste del fondo */
+        .popup-theme-dark {
+            color: #ffffff;
+        }
+        .popup-theme-dark .popup-header-title,
+        .popup-theme-dark .popup-value {
+            color: #ffffff;
+        }
+        .popup-theme-dark .popup-label {
+            color: rgba(255, 255, 255, 0.78);
+        }
+
+        .popup-theme-light {
+            color: #1a1a1a;
+        }
+        .popup-theme-light .popup-header-title,
+        .popup-theme-light .popup-value {
+            color: #1a1a1a;
+        }
+        .popup-theme-light .popup-label {
+            color: rgba(0, 0, 0, 0.65);
+        }
+
+        /* Fuentes e Información técnica */
+        .tech-info-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 10px;
+            z-index: 1000;
+            background: #ffffff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            font-family: 'Lato', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .tech-info-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .tech-info-card {
+            display: none;
+            position: absolute;
+            bottom: 60px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            width: 320px;
+            max-width: calc(100vw - 30px);
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .tech-info-card h4 {
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 13px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 4px;
+        }
+
+        .tech-info-card ul {
+            list-style-type: disc;
+            padding-left: 15px;
+        }
+
+        .tech-info-card li {
+            margin-bottom: 8px;
+        }
+
+        .update-date-box {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #ccc;
+            font-size: 11px;
+            color: #2c3e50;
+        }
+
+        /* Clases de colores para Leyendas */
+        .text-red { color: #e74c3c; font-weight: bold; }
+        .text-purple { color: #8e44ad; font-weight: bold; }
+        .text-green { color: #27ae60; font-weight: bold; }
+        .text-blue { color: #2980b9; font-weight: bold; }
+        .text-brown { color: #795548; font-weight: bold; }
+        .text-gray { color: #7f8c8d; font-weight: bold; }
+
+        @media (max-width: 600px) {
+            .title-banner {
+                top: 10px;
+                left: 10px;
+                max-width: calc(100% - 70px);
+                padding: 6px 10px;
+            }
+            .title-banner h1 {
+                font-size: 11px;
+            }
+            .legend-panel {
+                width: 240px;
+                max-height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Título del proyecto -->
+    <div class="title-banner">
+        <h1>DIAGNÓSTICO DE CONTAMINACIÓN ATMOSFÉRICA EN EL MUNICIPIO DE MÉRIDA, YUCATÁN</h1>
+    </div>
+
+    <!-- Contenedor del Mapa -->
+    <div id="map"></div>
+
+    <!-- Botón y Contenido de Fuentes e Información Técnica -->
+    <button class="tech-info-btn" onclick="toggleTechInfo()">Fuentes e información técnica</button>
+    <div class="tech-info-card" id="techCard">
+        <h4 style="font-family: 'Lato', sans-serif; font-weight: 700;">Fuentes e información técnica</h4>
+        <ul>
+            <li><strong>AGEBS Urbanos:</strong> INEGI (2020). Marco geoestadístico. Municipio de Mérida, Yucatán.</li>
+            <li><strong>Actividades económicas:</strong> INEGI (2026). Directorio Estadístico Nacional de Unidades Económicas (DENUE).</li>
+            <li><strong>Contaminación atmosférica:</strong> European Space Agency (ESA). (2025). Copernicus Sentinel-5P TROPOMI Total and Tropospheric NO2 Exceedance Data [Level 3 Offline Product]. Recuperado a través de Google Earth Engine Data Catalog. doi.org.</li>
+        </ul>
+        <div class="update-date-box">
+            <strong>Fecha de actualización:</strong> <span id="lastUpdatedDate">Cargando...</span>
+        </div>
+    </div>
+
+    <!-- JS de Leaflet y Plugins -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        // Carga dinámica de la Fecha de Última Modificación del archivo
+        document.addEventListener("DOMContentLoaded", function () {
+            const lastModDate = new Date(document.lastModified);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedDate = lastModDate.toLocaleDateString('es-ES', options);
+            document.getElementById('lastUpdatedDate').innerText = formattedDate;
+        });
+
+        // Inicialización del Mapa
+        const map = L.map('map', {
+            center: [20.9676, -89.6237],
+            zoom: 11,
+            zoomControl: false
+        });
+
+        // Reposicionar control de zoom
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        // Mapas Base
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri'
+        });
+
+        const baseMaps = {
+            "OpenStreetMap": osm,
+            "Satélite (Esri)": esriSat
+        };
+
+        // Función de color según nivel de contaminación
+        function getAGEBColor(est) {
+            const status = (est || '').toString().trim().toUpperCase();
+            switch (status) {
+                case 'MUY BAJO': return '#ffffcc';
+                case 'BAJO':     return '#ffdda2';
+                case 'MODERADO': return '#ff9933';
+                case 'ALTO':     return '#ff0000';
+                case 'CRÍTICO':  return '#b30024';
+                default:         return '#ffffff';
+            }
+        }
+
+        function styleAGEB(feature) {
+            return {
+                fillColor: getAGEBColor(feature.properties.Est_Contam),
+                weight: 1,
+                opacity: 0.8,
+                color: '#666',
+                fillOpacity: 0.7
+            };
+        }
+
+        // Capa 1: Nivel de Contaminación por AGEB
+        const layerContaminacion = L.geoJson(null, {
+            style: styleAGEB,
+            onEachFeature: function (feature, layer) {
+                const props = feature.properties;
+                const estContam = (props.Est_Contam || 'SIN DATOS').toString().trim().toUpperCase();
+                const bgColor = getAGEBColor(estContam);
+                
+                // Tema de color según contraste
+                const isLightColor = ['MUY BAJO', 'BAJO', 'SIN DATOS'].includes(estContam);
+                const themeClass = isLightColor ? 'popup-theme-light' : 'popup-theme-dark';
+
+                const popupContent = `
+                    <div class="${themeClass}">
+                        <div class="popup-header-title">DIAGNÓSTICO DE CONTAMINACIÓN ATMOSFÉRICA POR AGEB</div>
+                        
+                        <div class="popup-field">
+                            <div class="popup-label">CLAVE GEOESTADÍSTICA (CVEGEO)</div>
+                            <div class="popup-value">${props.CVEGEO || props.cvegeo || 'N/A'}</div>
+                        </div>
+
+                        <div class="popup-field">
+                            <div class="popup-label">NIVEL DE CONTAMINACIÓN</div>
+                            <div class="popup-value">${estContam}</div>
+                        </div>
+
+                        <div class="popup-field" style="margin-bottom: 0;">
+                            <div class="popup-label">ÍNDICE FINAL DE PRESIÓN ATMOSFÉRICA (IFPA)</div>
+                            <div class="popup-value">${props.IFPA !== undefined ? props.IFPA : 'N/A'}</div>
+                        </div>
+                    </div>
+                `;
+
+                layer.bindPopup(popupContent, {
+                    className: 'custom-ageb-popup',
+                    maxWidth: 280
+                });
+
+                layer.on('popupopen', function (e) {
+                    const popupEl = e.popup.getElement();
+                    if (popupEl) {
+                        const wrapper = popupEl.querySelector('.leaflet-popup-content-wrapper');
+                        const tip = popupEl.querySelector('.leaflet-popup-tip');
+                        if (wrapper) wrapper.style.backgroundColor = bgColor;
+                        if (tip) tip.style.backgroundColor = bgColor;
+                    }
+                });
+            }
+        });
+
+        fetch('Geojson/Contaminacion_MID.geojson')
+            .then(res => res.json())
+            .then(data => layerContaminacion.addData(data));
+
+        // Capa 2: Límite Municipal de Mérida
+        const layerLimite = L.geoJson(null, {
+            style: {
+                color: '#ff0000',
+                weight: 3.5,
+                fill: false,
+                opacity: 1
+            }
+        });
+
+        fetch('Geojson/MID_UTM16.geojson')
+            .then(res => res.json())
+            .then(data => layerLimite.addData(data));
+
+        // Capa 3: Capa Raster NO2
+        const layerNO2 = L.tileLayer('Capa_no2_tiles/{z}/{x}/{y}.png', {
+            minZoom: 10,
+            maxZoom: 16,
+            opacity: 0.7,
+            tms: false
+        });
+
+        // Función para Capas de Puntos con Clustering
+        function createPointClusterLayer(url, colorCircle) {
+            const clusterGroup = L.markerClusterGroup({
+                disableClusteringAtZoom: 16,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false
+            });
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    const geoLayer = L.geoJson(data, {
+                        pointToLayer: function (feature, latlng) {
+                            return L.circleMarker(latlng, {
+                                radius: 5,
+                                fillColor: colorCircle,
+                                color: "#000",
+                                weight: 0.8,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+                        },
+                        onEachFeature: function (feature, layer) {
+                            const nameAct = feature.properties.nombre_act || 'Sin información';
+                            layer.bindPopup(`
+                                <div style="font-family: 'Lato', sans-serif; font-size: 12px;">
+                                    <b>Actividad Económica:</b><br>${nameAct}
+                                </div>
+                            `);
+                        }
+                    });
+                    clusterGroup.addLayer(geoLayer);
+                });
+
+            return clusterGroup;
+        }
+
+        // Instancias de capas
+        const layerGasolineras = createPointClusterLayer('Geojson/Gasolinareas_gas_MID.geojson', '#e74c3c');
+        const layerIndustria = createPointClusterLayer('Geojson/Ind_manufacturera_MID.geojson', '#8e44ad');
+        const layerOtrosServ = createPointClusterLayer('Geojson/Otros_serv_MID.geojson', '#27ae60');
+        const layerAlojamiento = createPointClusterLayer('Geojson/Serv_aloj_tem_MID.geojson', '#2980b9');
+        const layerEnergia = createPointClusterLayer('Geojson/Generacion_energia_MID.geojson', '#795548');
+        const layerTransporte = createPointClusterLayer('Geojson/Transportes_MID.geojson', '#7f8c8d');
+
+        // Árbol de Capas
+        const overlayMaps = {
+            "Nivel de contaminación por AGEB": layerContaminacion,
+            "Contaminación atmosférica (NO₂)": layerNO2,
+            "Límite Municipal de Mérida": layerLimite,
+            "<br><b>ACTIVIDADES ECONÓMICAS CONTAMINANTES</b>": L.layerGroup(),
+            "<span class='text-red'>Gasolineras y estaciones de gas LP</span>": layerGasolineras,
+            "<span class='text-purple'>Industria manufacturera</span>": layerIndustria,
+            "<span class='text-green'>Otros servicios excepto actividades gubernamentales</span>": layerOtrosServ,
+            "<span class='text-blue'>Servicios de alojamiento temporal y de preparación de alimentos y bebidas</span>": layerAlojamiento,
+            "<span class='text-brown'>Generación, transmisión y distribución de energía eléctrica, suministro de agua y de gas por ductos al consumidor final</span>": layerEnergia,
+            "<span class='text-gray'>Transportes, correos y almacenamiento</span>": layerTransporte
+        };
+
+        // Control de Capas
+        L.control.layers(baseMaps, overlayMaps, { collapsed: true, position: 'topright' }).addTo(map);
+
+        // Capas iniciales
+        layerContaminacion.addTo(map);
+        layerLimite.addTo(map);
+
+        // Control de Simbología con Botón Desplegable
+        const legendControl = L.control({ position: 'bottomright' });
+
+        legendControl.onAdd = function (map) {
+            const container = L.DomUtil.create('div', 'legend-container');
+
+            const button = L.DomUtil.create('button', 'legend-toggle-btn', container);
+            button.title = "Mostrar/Ocultar Simbología";
+            button.innerHTML = `
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                </svg>
+            `;
+
+            const panel = L.DomUtil.create('div', 'legend-panel', container);
+            panel.id = 'legendPanel';
+
+            panel.innerHTML = `
+                <div class="legend-title">NIVEL DE CONTAMINACIÓN POR AGEB</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ffffcc;"></div>MUY BAJO</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ffdda2;"></div>BAJO</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ff9933;"></div>MODERADO</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ff0000;"></div>ALTO</div>
+                <div class="legend-item"><div class="legend-color" style="background:#b30024;"></div>CRÍTICO</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ffffff; border:1px dashed #666;"></div>SIN DATOS</div>
+
+                <div class="legend-section-title">CONTAMINACIÓN ATMOSFÉRICA (NO₂)</div>
+                <div style="font-style: italic; color: #555; font-size: 11px; margin-bottom: 4px;">Gradiente de presión atmosférica</div>
+                <div class="no2-container">
+                    <div class="no2-gradient-bar"></div>
+                    <div class="no2-labels">
+                        <span>0.000065 mol/m²</span>
+                        <span>0.000053 mol/m²</span>
+                    </div>
+                </div>
+
+                <div class="opacity-control">
+                    <label for="opacityRange">Opacidad NO₂:</label>
+                    <input type="range" id="opacityRange" min="0" max="1" step="0.1" value="0.7">
+                </div>
+            `;
+
+            const toggleLegend = () => {
+                panel.classList.toggle('collapsed');
+            };
+
+            button.addEventListener('click', toggleLegend);
+            container.addEventListener('mouseenter', () => panel.classList.remove('collapsed'));
+
+            L.DomEvent.disableScrollPropagation(container);
+            L.DomEvent.disableClickPropagation(container);
+
+            return container;
+        };
+
+        legendControl.addTo(map);
+
+        // Control de Opacidad
+        document.addEventListener('input', function (e) {
+            if (e.target && e.target.id === 'opacityRange') {
+                layerNO2.setOpacity(e.target.value);
+            }
+        });
+
+        // Alternar Modal de Fuentes
+        function toggleTechInfo() {
+            const card = document.getElementById('techCard');
+            card.style.display = (card.style.display === 'block') ? 'none' : 'block';
+        }
+    </script>
+</body>
+</html>
