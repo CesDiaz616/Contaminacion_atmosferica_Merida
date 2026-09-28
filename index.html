@@ -492,7 +492,7 @@
             .then(data => layerLimite.addData(data));
 
         // Capa 3: Capa Raster NO2
-        const layerNO2 = L.tileLayer('Capa_no2_tiles/{z}/{x}/{y}.png', {
+        const layerNO2 = L.tileLayer('capa_no2_tiles/{z}/{x}/{y}.png', {
             minZoom: 10,
             maxZoom: 16,
             opacity: 0.7,
